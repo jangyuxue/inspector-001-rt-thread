@@ -1,0 +1,29 @@
+import rtconfig
+import os
+from building import *
+
+cwd     = GetCurrentDir()
+CPPPATH = [cwd, str(Dir('#'))]
+src     = Split("""
+main.c
+APP_Display.c
+APP_Esp8266.c
+APP_Flow.c
+APP_Font.c
+APP_Mqtt.c
+APP_Ov.c
+APP_Pn532.c
+APP_Rc522.c
+APP_SdDiag.c
+APP_Touch.c
+""")
+
+group = DefineGroup('Applications', src, depend = [''], CPPPATH = CPPPATH)
+
+list = os.listdir(cwd)
+for d in list:
+    path = os.path.join(cwd, d)
+    if os.path.isfile(os.path.join(path, 'SConscript')):
+        group = group + SConscript(os.path.join(d, 'SConscript'))
+
+Return('group')

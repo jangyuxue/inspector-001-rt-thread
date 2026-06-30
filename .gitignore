@@ -1,0 +1,47 @@
+# RT-Thread Studio build output
+Debug/
+Release/
+build/
+*.o
+*.obj
+*.d
+*.elf
+*.bin
+*.hex
+*.map
+*.lst
+*.axf
+
+# Local IDE and generated metadata
+.metadata/
+.settings/
+.vscode/
+.idea/
+*.launch
+
+# Caches and temporary files
+.ruff_cache/
+__pycache__/
+*.pyc
+tmp/
+*.log
+.sconsign.dblite*
+*.gitkeep
+
+# Large vendor/reference material kept outside version control
+*资料盘*/
+*正点原子*/
+【正点原子】探索者STM32F407开发板V3 资料盘(A盘)/
+
+# Local agent/runtime state
+.claude/
+.codex/
+.agents/
+AGENT.md
+DEBUG.md
+PROCESSING.md
+assets/
+deliverables/
+firmware/
+tools/
+docs/superpowers/
