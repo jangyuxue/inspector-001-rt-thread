@@ -15,6 +15,11 @@ build/
 # Local IDE and generated metadata
 .metadata/
 .settings/
+!inspector_001_explorer_v3/.settings/
+inspector_001_explorer_v3/.settings/*
+!inspector_001_explorer_v3/.settings/projcfg.ini
+!inspector_001_explorer_v3/.settings/org.eclipse.core.runtime.prefs
+!inspector_001_explorer_v3/.settings/ilg.gnumcueclipse.managedbuild.cross.arm.prefs
 .vscode/
 .idea/
 *.launch
