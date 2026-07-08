@@ -11,42 +11,46 @@ build/
 *.map
 *.lst
 *.axf
+*.srec
+.sconsign.dblite*
 
-# Local IDE and generated metadata
+# IDE and local workspace files
 .metadata/
+.vscode/
+.idea/
+*.launch
+*.user
+*.bak
+*.tmp
+*.orig
+*.gitkeep
+
+# Keep only the RT-Thread Studio project settings required for import.
 .settings/
 !inspector_001_explorer_v3/.settings/
 inspector_001_explorer_v3/.settings/*
 !inspector_001_explorer_v3/.settings/projcfg.ini
 !inspector_001_explorer_v3/.settings/org.eclipse.core.runtime.prefs
 !inspector_001_explorer_v3/.settings/ilg.gnumcueclipse.managedbuild.cross.arm.prefs
-.vscode/
-.idea/
-*.launch
 
-# Caches and temporary files
+# Temporary files
 .ruff_cache/
 __pycache__/
 *.pyc
 tmp/
 *.log
-.sconsign.dblite*
-*.gitkeep
 
-# Large vendor/reference material kept outside version control
-*资料盘*/
-*正点原子*/
-【正点原子】探索者STM32F407开发板V3 资料盘(A盘)/
-
-# Local agent/runtime state
+# Local notes and process files
 .claude/
 .codex/
 .agents/
 AGENT.md
+AGENTS.md
 DEBUG.md
 PROCESSING.md
+USING.md
 assets/
 deliverables/
 firmware/
 tools/
-docs/superpowers/
+docs/
