@@ -1,114 +1,125 @@
 # Inspector 001 RT-Thread
 
-Inspector 001 is an embedded inspection terminal built on RT-Thread for the ALIENTEK Explorer STM32F407 V3 development board. It integrates identity verification, device identification, camera capture, local record storage, and MQTT upload into one board-level workflow.
+Embedded inspection terminal firmware for the ALIENTEK Explorer STM32F407 V3 development board.
 
-The current firmware has been validated on real hardware with NFC, RFID, OV2640 camera, TF card storage, ESP8266 networking, MQTT publishing, LCD display, and touch interaction.
+The firmware runs a complete inspection workflow on RT-Thread: NFC identity verification, RFID device verification, OV2640 camera preview and snapshot capture, TF card record storage, ESP8266 networking, and MQTT upload.
 
-## Features
+## What This Project Does
 
-- NFC identity verification with PN532 over software I2C
-- RFID device verification with RC522 over software SPI
-- OV2640 camera preview and snapshot capture with DCMI + DMA
-- TF card storage through SDIO
-- CSV inspection records and BMP photo output
-- ESP8266 networking through RT-Thread `at_device`
-- MQTT upload through Paho MQTT
-- Touch-driven inspection flow on the LCD
-- Shared-pin handling between OV2640 DCMI and SDIO storage
+After boot, the board runs the inspection flow automatically:
 
-## Hardware Platform
+```text
+WELCOME
+  -> NFC verification
+  -> RFID verification
+  -> camera preview and snapshot
+  -> save BMP photo and CSV record to TF card
+  -> connect ESP8266 WiFi
+  -> publish inspection record to MQTT
+  -> continue next device or finish this inspection round
+```
 
-| Item | Configuration |
+The normal workflow is touch driven on the LCD. FinSH commands are kept for bring-up and diagnosis.
+
+## Hardware
+
+| Module | Configuration |
 | --- | --- |
 | MCU board | ALIENTEK Explorer STM32F407 V3 |
 | RTOS | RT-Thread |
 | IDE | RT-Thread Studio |
-| Display | 4.3-inch LCD with GT9xxx touch |
-| Camera | OV2640 |
-| NFC | PN532 |
-| RFID | RC522 |
-| Storage | TF card over SDIO |
-| Network | ESP8266 on ATK MODULE / UART3 |
+| Display | 4.3-inch LCD |
+| Touch | GT9xxx |
+| Camera | OV2640 through board camera connector |
+| NFC | PN532, software I2C |
+| RFID | RC522, software SPI |
+| Storage | TF card through SDIO |
+| Network | ESP8266 AT firmware through ATK MODULE / UART3 |
+| MQTT | Paho MQTT over RT-Thread SAL/netdev |
 
-## Main Pin Assignments
+## Main Pin Map
 
 | Peripheral | Pins |
 | --- | --- |
-| PN532 NFC | SCL=PE3, SDA=PE2, I2C address 0x24 |
+| PN532 NFC | SCL=PE3, SDA=PE2, address=0x24 |
 | RC522 RFID | SCK=PA5, MISO=PA6, MOSI=PA7, CS=PA4, RST=PC4 |
-| OV2640 SCCB/control | XCLK=PA8, SCL=PD6, SDA=PD7, PWDN=PG9, RESET=PG15 |
+| OV2640 control | XCLK=PA8, SCCB_SCL=PD6, SCCB_SDA=PD7, PWDN=PG9, RESET=PG15 |
 | OV2640 DCMI | PA4, PA6, PB6, PB7, PC6, PC7, PC8, PC9, PC11, PE5, PE6 |
-| TF card | SDIO |
+| TF card SDIO | PD2, PC8, PC9, PC10, PC11, PC12 |
 | ESP8266 | UART3, PB10/PB11 through ATK MODULE |
+| GT9xxx touch | SCL=PB0, SDA=PF11, RST=PC13, INT=PB1 |
 
-OV2640 and TF card share part of the board routing. The firmware switches ownership by using DCMI during camera capture, then releasing the shared lines back to SDIO before saving the photo.
+OV2640 and TF card share part of the board routing. The application captures the camera frame first, releases the shared DCMI pins back to SDIO, then mounts the TF card and writes the file.
 
-## Inspection Flow
+RC522 also shares PA4/PA6 with OV2640 DCMI. The production flow uses these peripherals sequentially, not at the same time.
 
-1. Show the welcome screen after boot.
-2. Wait for a registered NFC card.
-3. Enter RFID verification after NFC succeeds.
-4. Enter camera preview after RFID succeeds.
-5. Capture a photo from the touch UI.
-6. Save the photo to the TF card.
-7. Append an inspection record to CSV.
-8. Connect WiFi and publish the record through MQTT.
-9. Let the operator continue with another device or finish the inspection round.
-
-## Storage Layout
-
-The TF card is mounted at `/sdcard`. Runtime data is stored under:
+## Repository Layout
 
 ```text
-/sdcard/INSPECT/
-├── DEVICES.CSV
-├── RECORDS.CSV
-└── PHOTOS/
-    ├── INS0001.BMP
-    └── INS0002.BMP
+.
+|-- README.md
+|-- USING.md
+|-- docs/
+`-- inspector_001_explorer_v3/
+    |-- applications/      Application modules and inspection flow
+    |-- board/             Explorer V3 BSP, CubeMX config, linker scripts, board ports
+    |-- libraries/         STM32 HAL and RT-Thread HAL drivers
+    |-- packages/          at_device and Paho MQTT packages
+    |-- rt-thread/         RT-Thread kernel and components
+    |-- .project           RT-Thread Studio / Eclipse project file
+    |-- .cproject          CDT build configuration
+    |-- .config            RT-Thread configuration
+    |-- rtconfig.h
+    |-- rtconfig.py
+    `-- SConstruct
 ```
 
-`RECORDS.CSV` uses a sequence number to distinguish inspection records. The same sequence number is used in the CSV record, BMP filename, and MQTT JSON payload.
+`Debug/`, object files, ELF/BIN outputs, IDE caches, and local temporary files are intentionally ignored. They are regenerated by RT-Thread Studio or the build system.
 
-## MQTT
+## Application Modules
 
-ESP8266 is registered as the RT-Thread network device `esp0`. MQTT publishing uses the Paho MQTT package.
+| Module | Purpose |
+| --- | --- |
+| `APP_Flow.c` | Main automatic inspection state machine. |
+| `APP_Display.c` | LCD initialization, pages, status areas, buttons, RGB565 image display. |
+| `APP_Touch.c` | GT9xxx touch initialization, interrupt semaphore, coordinate reading and mapping. |
+| `APP_Pn532.c` | PN532 NFC UID reading over software I2C. |
+| `APP_Rc522.c` | RC522 RFID UID reading over software SPI. |
+| `APP_Ov.c` | OV2640 SCCB setup, DCMI/DMA capture, preview, BMP saving, SDIO pin release. |
+| `APP_SdDiag.c` | TF card pin restore, rescan, mount guard, read/write diagnostics. |
+| `APP_Esp8266.c` | ESP8266 `at_device` registration, WiFi join, `esp0` status refresh, AT diagnostics. |
+| `APP_Mqtt.c` | Paho MQTT startup, publish, subscribe diagnostics, stop. |
 
-Default configuration is kept in source-level macros:
+For detailed function chains, threads, semaphores, mutexes, macros, and maintenance notes, see [USING.md](USING.md).
 
-- WiFi SSID/password: `APP_ESP_DEFAULT_WIFI_SSID`, `APP_ESP_DEFAULT_WIFI_PASSWORD`
-- MQTT URI: `APP_MQTT_DEFAULT_URI`
-- MQTT topic: `APP_MQTT_DEFAULT_TOPIC`
+## Import With RT-Thread Studio
 
-Default topic:
+Clone the repository:
+
+```powershell
+git clone https://github.com/jangyuxue/inspector-001-rt-thread.git
+```
+
+Import this subdirectory as the RT-Thread Studio project:
 
 ```text
-rtt_to_atk/explorer/test
+inspector-001-rt-thread/inspector_001_explorer_v3
 ```
 
-## Useful FinSH Commands
+Do not import the repository root as the project. The actual Studio project is the `inspector_001_explorer_v3` folder.
 
-The normal inspection flow is automatic. These commands are kept for board bring-up and diagnosis:
-
-```text
-APP
-APP sd
-APP sd rescan
-APP esp status
-APP esp join <ssid> <password>
-APP mqtt status
-APP mqtt start
-APP mqtt pub <topic> <message>
-APP nfc
-APP rfid
-APP ov live
-```
+Generated build folders are not committed. RT-Thread Studio will create local build output after the first build.
 
 ## Build
 
-Open `inspector_001_explorer_v3` with RT-Thread Studio and build the Debug configuration.
+Preferred path:
 
-The project can also be built with the generated Debug Makefile when the RT-Thread Studio toolchain is available locally:
+1. Open RT-Thread Studio.
+2. Import `inspector_001_explorer_v3`.
+3. Build the `Debug` configuration.
+4. Flash the generated firmware to the Explorer STM32F407 V3 board.
+
+Command-line build is also possible when the RT-Thread Studio toolchain is installed at the expected local path:
 
 ```powershell
 cd inspector_001_explorer_v3\Debug
@@ -116,14 +127,137 @@ $env:PATH='E:\RT_ThreadStudioIDE\RT-ThreadStudio\repo\Extract\ToolChain_Support_
 mingw32-make all
 ```
 
-Last verified local build:
+Last verified build size:
 
 ```text
 text=296672 data=2420 bss=26088 dec=325180
 ```
 
+## Runtime Storage
+
+The TF card is mounted at `/sdcard`. Runtime data is stored under:
+
+```text
+/sdcard/INSPECT/
+|-- DEVICES.CSV
+|-- RECORDS.CSV
+`-- PHOTOS/
+    |-- INS0001.BMP
+    |-- INS0002.BMP
+    `-- ...
+```
+
+`DEVICES.CSV` stores registered NFC/RFID identities:
+
+```csv
+type,uid,name
+NFC,04C35D91410289,item001
+RFID,0463D09D410289,device001
+```
+
+`RECORDS.CSV` stores inspection records:
+
+```csv
+seq,tick,nfc_uid,nfc_name,rfid_uid,rfid_name,photo_path,photo_status,photo_ret
+1,123456,04C35D91410289,item001,0463D09D410289,device001,/sdcard/INSPECT/PHOTOS/INS0001.BMP,PHOTO_OK,0
+```
+
+The same sequence number is used in the CSV record, BMP filename, and MQTT payload.
+
+## MQTT
+
+ESP8266 is registered as RT-Thread netdev `esp0`. MQTT publishing uses Paho MQTT.
+
+Default values are defined in source macros:
+
+| Setting | Location |
+| --- | --- |
+| WiFi SSID/password | `APP_ESP_DEFAULT_WIFI_SSID`, `APP_ESP_DEFAULT_WIFI_PASSWORD` in `APP_Esp8266.c` |
+| MQTT URI | `APP_MQTT_DEFAULT_URI` in `APP_Mqtt.c` |
+| MQTT topic for diagnostics | `APP_MQTT_DEFAULT_TOPIC` in `APP_Mqtt.c` |
+| MQTT topic for inspection flow | `APP_FLOW_MQTT_TOPIC` in `APP_Flow.c` |
+
+Default topic:
+
+```text
+rtt_to_atk/explorer/test
+```
+
+The validated ESP8266 firmware does not support `AT+CIPDNS?`. RT-Thread `at_device` may print a warning for that command. The application sets local DNS and uses `AT+CIPDOMAIN` when domain resolution is needed for MQTT.
+
+## FinSH Diagnostics
+
+The production flow is automatic. These commands are useful during hardware bring-up:
+
+```text
+APP
+APP flow status
+APP flow add <name>
+APP flow reset
+
+APP sd
+APP sd rescan
+
+APP nfc
+APP rfid
+APP ov live
+
+APP esp status
+APP esp up
+APP esp join <ssid> <password>
+APP esp ping <host>
+APP esp <AT command>
+
+APP mqtt status
+APP mqtt start [tcp://host:1883]
+APP mqtt sub [topic]
+APP mqtt pub [topic] [message]
+APP mqtt stop
+```
+
+Typical module checks:
+
+```text
+APP sd
+APP nfc
+APP rfid
+APP ov live
+APP esp join ESP 12345678
+APP mqtt start
+APP mqtt pub rtt_to_atk/explorer/test hello
+```
+
+## Configuration Entry Points
+
+| Task | Edit |
+| --- | --- |
+| Change WiFi | `APP_ESP_DEFAULT_WIFI_SSID`, `APP_ESP_DEFAULT_WIFI_PASSWORD` |
+| Change MQTT broker | `APP_MQTT_DEFAULT_URI` |
+| Change MQTT topic | `APP_MQTT_DEFAULT_TOPIC`, `APP_FLOW_MQTT_TOPIC` |
+| Change storage path | `APP_FLOW_ROOT_DIR`, `APP_FLOW_PHOTO_DIR`, `APP_FLOW_DEVICE_FILE`, `APP_FLOW_RECORD_FILE` |
+| Change OV preview size | `APP_OV_PREVIEW_WIDTH`, `APP_OV_PREVIEW_HEIGHT` |
+| Change LCD layout | coordinate macros at the top of `APP_Display.c` |
+| Change PN532 pins | pin macros at the top of `APP_Pn532.c` |
+| Change RC522 pins | pin macros at the top of `APP_Rc522.c` |
+
+## Validation Checklist
+
+After cloning, importing, or changing hardware configuration, verify in this order:
+
+1. Build succeeds in RT-Thread Studio.
+2. PF9 LED blinks after reset.
+3. LCD shows `WELCOME`, then enters NFC verification.
+4. `APP sd` can mount and read/write the TF card.
+5. `APP nfc` reads a PN532 UID.
+6. `APP rfid` reads an RC522 UID.
+7. `APP ov live` shows camera preview and can save a BMP.
+8. `APP esp join <ssid> <password>` gets an IP address.
+9. `APP mqtt start` connects.
+10. `APP mqtt pub ...` is visible in MQTTX.
+11. The automatic flow creates one BMP photo, appends one CSV record, and publishes one MQTT payload.
+
 ## Notes
 
-- The ESP8266 firmware used during validation does not support `AT+CIPDNS?`; this produces a warning from `at_device`. The application sets DNS locally and waits for stable `esp0` link/IP state before starting MQTT.
-- LCD display direction is configured for the validated physical mounting direction, with matching touch-coordinate mapping.
-- Build outputs, local temporary files, IDE runtime data, and large vendor reference material are intentionally ignored by Git.
+- Import `inspector_001_explorer_v3`, not the repository root.
+- Keep generated build outputs out of Git.
+- The board-specific pin sharing between OV2640, TF card, and RC522 is intentional. Do not make these modules run concurrently without adding a shared resource lock.
